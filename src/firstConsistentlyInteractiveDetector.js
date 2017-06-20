@@ -45,7 +45,7 @@ export default class FirstConsistentlyInteractiveDetector {
     // consume them now.
     if (snippetEntries) {
       log(`Consuming the long task entries already recorded.`);
-
+      this._reports.push(`Consuming the long task entries already recorded.`);
       this._longTasks = snippetEntries.map((performanceEntry) => {
         return {
           start: performanceEntry.startTime,
@@ -82,6 +82,8 @@ export default class FirstConsistentlyInteractiveDetector {
     this._mutationObserver = null;
 
     this._registerListeners();
+      
+    this._reports = [];
   }
 
   /**
@@ -112,7 +114,9 @@ export default class FirstConsistentlyInteractiveDetector {
    */
   startSchedulingTimerTasks() {
     log(`Enabling FirstConsistentlyInteractiveDetector`);
-
+      
+    this._reports.push(`Enabling FirstConsistentlyInteractiveDetector`);
+    
     this._scheduleTimerTasks = true;
 
     const lastLongTaskEnd = this._longTasks.length > 0 ?
@@ -144,18 +148,22 @@ export default class FirstConsistentlyInteractiveDetector {
     if (!this._scheduleTimerTasks) {
       log(`startSchedulingTimerTasks must be called before ` +
           `calling rescheduleTimer`);
-
+      this._reports.push(`startSchedulingTimerTasks must be called before ` +
+          `calling rescheduleTimer`);
       return;
     }
 
     log(`Attempting to reschedule FirstConsistentlyInteractive ` +
         `check to ${earliestTime}`);
+    this._reports.push(`Attempting to reschedule FirstConsistentlyInteractive ` +
+        `check to ${earliestTime}`);
     log(`Previous timer activation time: ${this._timerActivationTime}`);
-
+    this._reports.push(`Previous timer activation time: ${this._timerActivationTime}`);
     if (this._timerActivationTime > earliestTime) {
       log(`Current activation time is greater than attempted ` +
           `reschedule time. No need to postpone.`);
-
+      this._reports.push(`Current activation time is greater than attempted ` +
+          `reschedule time. No need to postpone.`);
       return;
     }
     clearTimeout(this._timerId);
@@ -165,6 +173,7 @@ export default class FirstConsistentlyInteractiveDetector {
     this._timerActivationTime = earliestTime;
 
     log(`Rescheduled firstConsistentlyInteractive check at ${earliestTime}`);
+    this._reports.push(`Rescheduled firstConsistentlyInteractive check at ${earliestTime}`);
   }
 
   /**
@@ -172,6 +181,7 @@ export default class FirstConsistentlyInteractiveDetector {
    */
   disable() {
     log(`Disabling FirstConsistentlyInteractiveDetector`);
+    this._reports.push(`Disabling FirstConsistentlyInteractiveDetector`);
 
     clearTimeout(this._timerId);
     this._scheduleTimerTasks = false;
@@ -236,11 +246,13 @@ export default class FirstConsistentlyInteractiveDetector {
    */
   _beforeJSInitiatedRequestCallback(requestId) {
     log(`Starting JS initiated request. Request ID: ${requestId}`);
+    this._reports.push(`Starting JS initiated request. Request ID: ${requestId}`);
 
     this._incompleteJSInitiatedRequestStartTimes.set(
         requestId, performance.now());
 
     log(`Active XHRs: ${this._incompleteJSInitiatedRequestStartTimes.size}`);
+    this._reports.push(`Active XHRs: ${this._incompleteJSInitiatedRequestStartTimes.size}`);
   }
 
   /**
@@ -250,10 +262,14 @@ export default class FirstConsistentlyInteractiveDetector {
    */
   _afterJSInitiatedRequestCallback(requestId) {
     log(`Completed JS initiated request with request ID: ${requestId}`);
-
+    
+    this._reports.push(`Completed JS initiated request with request ID: ${requestId}`);
+      
     this._incompleteJSInitiatedRequestStartTimes.delete(requestId);
 
     log(`Active XHRs: ${this._incompleteJSInitiatedRequestStartTimes.size}`);
+      
+    this._reports.push(`Active XHRs: ${this._incompleteJSInitiatedRequestStartTimes.size}`);
   }
 
   /**
@@ -264,6 +280,7 @@ export default class FirstConsistentlyInteractiveDetector {
    */
   _networkRequestFinishedCallback(performanceEntry) {
     log(`Network request finished`, performanceEntry);
+    this._reports.push(`Network request finished, ${performanceEntry}`);
 
     this._networkRequests.push({
       start: performanceEntry.fetchStart,
@@ -280,7 +297,8 @@ export default class FirstConsistentlyInteractiveDetector {
    * @param {PerformanceEntry} performanceEntry
    */
   _longTaskFinishedCallback(performanceEntry) {
-    log(`Long task finished`, performanceEntry);
+    log(`Long task finished, performanceEntry`);
+    this._reports.push(`Long task finished, ${performanceEntry}`);
 
     const taskEndTime = performanceEntry.startTime +
           performanceEntry.duration;
@@ -299,9 +317,10 @@ export default class FirstConsistentlyInteractiveDetector {
   _mutationObserverCallback(mutationRecord) {
     log(`Potentially network resource fetching mutation detected`,
         mutationRecord);
-
+    this._reports.push(`Potentially network resource fetching mutation detected,
+        ${mutationRecord}`);
     log(`Pushing back FirstConsistentlyInteractive check by 5 seconds.`);
-
+    this._reports.push(`Pushing back FirstConsistentlyInteractive check by 5 seconds.`);
     this.rescheduleTimer(performance.now() + 5000);
   }
 
@@ -337,7 +356,7 @@ export default class FirstConsistentlyInteractiveDetector {
    */
   _checkTTI() {
     log(`Checking if First Consistently Interactive was reached...`);
-
+    this._reports.push(`Checking if First Consistently Interactive was reached...`);
     const navigationStart = performance.timing.navigationStart;
     const lastBusy =
         firstConsistentlyInteractiveCore.computeLastKnownNetwork2Busy(
@@ -357,20 +376,30 @@ export default class FirstConsistentlyInteractiveDetector {
     // this case should never be hit.
     if (minValue === null) {
       log(`No usable minimum value yet. Postponing check.`);
-
+      this._reports.push(`No usable minimum value yet. Postponing check.`);
       this.rescheduleTimer(Math.max(lastBusy + 5000, currentTime + 1000));
     }
 
     log(`Parameter values: `);
+    this._reports.push(`Parameter values: `);
     log(`NavigationStart ${navigationStart}`);
+    this._reports.push(`NavigationStart ${navigationStart}`);
     log(`lastKnownNetwork2Busy ${lastBusy}`);
+    this._reports.push(`lastKnownNetwork2Busy ${lastBusy}`);
     log(`Search Start ${searchStart}`);
+    this._reports.push(`Search Start ${searchStart}`);
     log(`Min Value ${minValue}`);
+    this._reports.push(`Min Value ${minValue}`);
     log(`Last busy ${lastBusy}`);
+    this._reports.push(`Last busy ${lastBusy}`);
     log(`Current time ${currentTime}`);
+    this._reports.push(`Current time ${currentTime}`);
     log(`Long tasks ${JSON.stringify(this._longTasks)}`);
+    this._reports.push(`Long tasks ${JSON.stringify(this._longTasks)}`);
     log(`Incomplete JS Request Start Times ${this._incompleteRequestStarts}`);
+    this._reports.push(`Incomplete JS Request Start Times ${this._incompleteRequestStarts}`);
     log(`Network requests ${this._networkRequests}`);
+    this._reports.push(`Network requests ${this._networkRequests}`);
 
     const maybeFCI =
         firstConsistentlyInteractiveCore.computeFirstConsistentlyInteractive(
@@ -378,8 +407,12 @@ export default class FirstConsistentlyInteractiveDetector {
             currentTime, this._longTasks);
 
     if (maybeFCI) {
+      const response = {
+        time: maybeFCI,
+        reports: this._reports
+      }
       this._firstConsistentlyInteractiveResolver(
-          /** @type {number} */ (maybeFCI));
+          /** @type {number} */ (response));
       this.disable();
     }
 
@@ -388,7 +421,8 @@ export default class FirstConsistentlyInteractiveDetector {
     // in our scheduler logic to get rid of this step.
     log(`Could not detect First Consistently Interactive. ` +
         `Retrying in 1 second.`);
-
+    this._reports.push(`Could not detect First Consistently Interactive. ` +
+        `Retrying in 1 second.`);
     this.rescheduleTimer(performance.now() + 1000);
   }
 }
