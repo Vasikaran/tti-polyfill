@@ -368,7 +368,7 @@ export default class FirstConsistentlyInteractiveDetector {
     log(`Min Value ${minValue}`);
     log(`Last busy ${lastBusy}`);
     log(`Current time ${currentTime}`);
-    log(`Long tasks ${this._longTasks}`);
+    log(`Long tasks ${JSON.stringify(this._longTasks)}`);
     log(`Incomplete JS Request Start Times ${this._incompleteRequestStarts}`);
     log(`Network requests ${this._networkRequests}`);
 
